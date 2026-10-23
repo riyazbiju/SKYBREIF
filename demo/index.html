@@ -1,0 +1,666 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>SkyBrief Flight Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout concept: enroute navigation display — graticule map, altitude tape, and
+   data-block readouts laid out like a flight-planning instrument panel. */
+:root{
+  color-scheme: dark;
+  --bg:        #0a0e12;
+  --panel:     #11161c;
+  --panel-2:   #161d25;
+  --line:      #263040;
+  --line-soft: #1a2129;
+  --ink:       #eef2f4;
+  --ink-dim:   #96a3b0;
+  --ink-mute:  #5c6b79;
+  --amber:     #ffb020;
+  --amber-dim: #8a6321;
+  --cyan:      #3ddcc0;
+  --series-1:  #3987e5;  /* predicted */
+  --series-2:  #d95926;  /* actual / secondary */
+  --good:      #0ca30c;
+  --warn:      #fab219;
+  --serious:   #ec835a;
+  --critical:  #d03b3b;
+  --font-display: "Barlow Condensed", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--ink);
+  font-size:15px;
+  line-height:1.55;
+  padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:20;background:var(--panel)}
+h1,h2,h3{font-family:var(--font-display);font-weight:700;text-transform:uppercase;letter-spacing:.02em;text-wrap:balance;margin:0}
+.mono{font-family:var(--font-mono)}
+.wrap{max-width:1080px;margin:0 auto;padding-block:0}
+a{color:var(--amber)}
+.eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}
+.muted{color:var(--ink-dim)}
+
+/* top bar */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--panel);border-bottom:1px solid var(--line);padding-block:12px}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .mark{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:.03em}
+.brand .tag{font-family:var(--font-mono);font-size:11px;color:var(--ink-mute)}
+.nav{display:flex;gap:18px;font-family:var(--font-mono);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+.nav a{color:var(--ink-dim);text-decoration:none;white-space:nowrap}
+.nav a:hover{color:var(--amber)}
+
+/* hero */
+.hero{padding-block:48px 36px;border-bottom:1px solid var(--line-soft)}
+.hero h1{font-size:40px;line-height:1.05;max-width:720px}
+.hero p.lede{font-size:16px;color:var(--ink-dim);max-width:600px;margin-top:14px}
+.hero .ctas{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
+.btn{font-family:var(--font-mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:11px 18px;border-radius:3px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;border:1px solid transparent}
+.btn-primary{background:var(--amber);color:#1a1200}
+.btn-ghost{border-color:var(--line);color:var(--ink)}
+.stat-row{display:flex;gap:28px;margin-top:32px;flex-wrap:wrap}
+.stat-row .stat{min-width:120px}
+.stat .v{font-family:var(--font-mono);font-size:22px;color:var(--cyan)}
+.stat .k{font-size:11px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+
+section{padding-block:44px;border-bottom:1px solid var(--line-soft)}
+section .kicker{display:flex;align-items:baseline;gap:12px;margin-bottom:22px}
+section .kicker h2{font-size:26px}
+section .kicker .num{font-family:var(--font-mono);color:var(--ink-mute);font-size:13px}
+
+/* diagram */
+.diagram-card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:20px;overflow-x:auto}
+figure{margin:0}
+figcaption{font-size:13px;color:var(--ink-dim);margin-top:14px;max-width:640px}
+.settings-row{display:flex;gap:18px;flex-wrap:wrap;margin-top:18px}
+.chip{font-family:var(--font-mono);font-size:12px;border:1px solid var(--line);border-radius:3px;padding:6px 10px;color:var(--ink-dim)}
+.chip b{color:var(--ink)}
+
+/* demo */
+.tabs{display:flex;gap:2px;margin-bottom:18px;flex-wrap:wrap}
+.tab{font-family:var(--font-mono);font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding:10px 14px;background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);cursor:pointer;border-radius:3px 3px 0 0}
+.tab[aria-selected="true"]{color:var(--amber);border-color:var(--amber-dim);background:var(--panel-2)}
+.demo-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}
+@media (max-width:760px){.demo-grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:16px;min-width:0}
+.panel h3{font-size:13px;color:var(--ink-dim);margin-bottom:10px;font-weight:600;letter-spacing:.05em}
+.panel svg{width:100%;height:auto;display:block}
+.controls{display:flex;align-items:center;gap:12px;margin-top:14px}
+.controls button{font-family:var(--font-mono);font-size:12px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:8px 12px;border-radius:3px;cursor:pointer}
+.controls button:hover{border-color:var(--amber-dim)}
+input[type=range]{flex:1;min-width:0;accent-color:var(--amber)}
+.time-read{font-family:var(--font-mono);font-size:12px;color:var(--ink-dim);min-width:72px;text-align:right}
+.readout-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.tile{background:var(--panel-2);border:1px solid var(--line);border-radius:3px;padding:10px 12px;min-width:0}
+.tile .k{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-mute)}
+.tile .v{font-family:var(--font-mono);font-size:19px;margin-top:3px;display:flex;align-items:baseline;gap:4px}
+.tile .u{font-size:11px;color:var(--ink-mute)}
+.tile.flag{border-color:var(--critical)}
+.tile.flag .v{color:var(--critical)}
+.wind-dial{display:inline-block;width:14px;height:14px;vertical-align:middle;transform-origin:50% 50%}
+.station-tag{font-family:var(--font-mono);font-size:10px;color:var(--ink-mute);margin-top:10px}
+.flag-note{font-size:12px;color:var(--critical);margin-top:10px;display:none}
+.flag-note.show{display:block}
+.compare-legend{display:flex;gap:16px;font-family:var(--font-mono);font-size:11px;margin-top:8px}
+.compare-legend span{display:inline-flex;align-items:center;gap:6px}
+.compare-legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+
+/* results */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line-soft)}
+th{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-mute);font-weight:500}
+td.num{font-family:var(--font-mono);text-align:right}
+.pill{font-family:var(--font-mono);font-size:10px;padding:3px 7px;border-radius:10px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%}
+.pill-good{color:var(--good);background:rgba(12,163,12,.12)}.pill-good::before{background:var(--good)}
+.pill-warn{color:var(--warn);background:rgba(250,178,25,.12)}.pill-warn::before{background:var(--warn)}
+.pill-crit{color:var(--critical);background:rgba(208,59,59,.14)}.pill-crit::before{background:var(--critical)}
+.table-wrap{overflow-x:auto}
+.finding-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+@media (max-width:760px){.finding-grid{grid-template-columns:1fr}}
+.finding{border-left:3px solid var(--line);padding-left:14px}
+.finding.good{border-color:var(--good)}
+.finding.crit{border-color:var(--critical)}
+.finding h4{font-size:13px;letter-spacing:.03em;margin-bottom:6px}
+.finding p{font-size:13px;color:var(--ink-dim);margin:0}
+
+footer{padding-block:32px 48px}
+.stack-chips{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+.stack-chips span{font-family:var(--font-mono);font-size:11px;color:var(--ink-mute);border:1px solid var(--line);padding:4px 9px;border-radius:3px}
+footer p{font-size:13px;color:var(--ink-mute);max-width:640px}
+</style>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand">
+      <span class="mark">SKYBREIF</span>
+      <span class="tag">// spatiotemporal latent ode</span>
+    </div>
+    <nav class="nav">
+      <a href="#how">How it works</a>
+      <a href="#demo">Try it</a>
+      <a href="#results">Results</a>
+      <a href="https://github.com/riyazbiju/SKYBREIF" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero" style="border-bottom:1px solid var(--line-soft)">
+    <p class="eyebrow">Flight route weather prediction</p>
+    <h1>Weather at any point along a flight — before the aircraft gets there.</h1>
+    <p class="lede">A neural ODE learns how temperature, wind, pressure and visibility evolve through space and time over Canada, then predicts conditions at any latitude, longitude, altitude and minute — not just where a station happens to sit.</p>
+    <div class="ctas">
+      <a class="btn btn-primary" href="#demo">Fly the demo routes</a>
+      <a class="btn btn-ghost" href="#results">See the evaluation numbers</a>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><div class="v">10</div><div class="k">nearest stations fused</div></div>
+      <div class="stat"><div class="v">R²&nbsp;0.999</div><div class="k">pressure, route 1</div></div>
+      <div class="stat"><div class="v">36.6k+</div><div class="k">test predictions scored</div></div>
+      <div class="stat"><div class="v">Jan 2026</div><div class="k">training window</div></div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="kicker"><span class="num">01</span><h2>How it works</h2></div>
+    <div class="diagram-card">
+      <figure>
+        <svg viewBox="0 0 900 190" role="img" aria-label="Diagram: the 10 nearest weather stations are encoded, weighted by distance, into a latent state; an ODE solver evolves that state to the query's exact latitude, longitude, altitude and time; a decoder reads out temperature, wind, pressure and visibility.">
+          <defs>
+            <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <g font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">
+            <!-- stations -->
+            <rect x="12" y="55" width="140" height="80" rx="3" fill="none" stroke="currentColor" opacity=".6"/>
+            <text x="82" y="85" text-anchor="middle" opacity=".85">10 nearest</text>
+            <text x="82" y="100" text-anchor="middle" opacity=".85">stations</text>
+            <text x="82" y="118" text-anchor="middle" fill="#5c6b79" font-size="10">recent history</text>
+
+            <line x1="152" y1="95" x2="208" y2="95" stroke="currentColor" marker-end="url(#arrow)" opacity=".7"/>
+            <text x="180" y="86" text-anchor="middle" font-size="9" fill="#96a3b0">weight by distance</text>
+
+            <!-- encoder -->
+            <rect x="210" y="40" width="130" height="110" rx="3" fill="none" stroke="currentColor" opacity=".6"/>
+            <text x="275" y="90" text-anchor="middle" opacity=".85">Encoder</text>
+            <text x="275" y="108" text-anchor="middle" fill="#5c6b79" font-size="10">dim 32</text>
+
+            <line x1="340" y1="95" x2="396" y2="95" stroke="currentColor" marker-end="url(#arrow)" opacity=".7"/>
+            <text x="368" y="86" text-anchor="middle" font-size="9" fill="#96a3b0">latent z₀</text>
+
+            <!-- ODE solver (highlighted) -->
+            <rect x="398" y="30" width="150" height="130" rx="3" fill="rgba(255,176,32,.08)" stroke="#ffb020" stroke-width="1.5"/>
+            <text x="473" y="80" text-anchor="middle" fill="#ffb020">ODE solver</text>
+            <text x="473" y="96" text-anchor="middle" fill="#ffb020">(rk4)</text>
+            <text x="473" y="118" text-anchor="middle" fill="#8a6321" font-size="10">evolves z₀ → z(lat,lon,alt,t)</text>
+
+            <line x1="548" y1="95" x2="604" y2="95" stroke="currentColor" marker-end="url(#arrow)" opacity=".7"/>
+            <text x="576" y="86" text-anchor="middle" font-size="9" fill="#96a3b0">z(query)</text>
+
+            <!-- decoder -->
+            <rect x="606" y="40" width="120" height="110" rx="3" fill="none" stroke="currentColor" opacity=".6"/>
+            <text x="666" y="95" text-anchor="middle" opacity=".85">Decoder</text>
+
+            <line x1="726" y1="95" x2="782" y2="95" stroke="currentColor" marker-end="url(#arrow)" opacity=".7"/>
+
+            <!-- prediction -->
+            <rect x="784" y="20" width="104" height="150" rx="3" fill="none" stroke="#3ddcc0" opacity=".8"/>
+            <text x="836" y="48" text-anchor="middle" fill="#3ddcc0" font-size="10">Prediction</text>
+            <text x="836" y="72" text-anchor="middle" fill="#cfe" font-size="10">temperature</text>
+            <text x="836" y="90" text-anchor="middle" fill="#cfe" font-size="10">wind speed</text>
+            <text x="836" y="108" text-anchor="middle" fill="#cfe" font-size="10">wind dir.</text>
+            <text x="836" y="126" text-anchor="middle" fill="#cfe" font-size="10">pressure</text>
+            <text x="836" y="144" text-anchor="middle" fill="#cfe" font-size="10">visibility</text>
+          </g>
+        </svg>
+        <figcaption>For a query point, the model takes the 10 nearest station histories, encodes them into a latent state weighted by distance, then runs an ODE solver forward to the query's exact coordinates in space <em>and</em> time, before decoding five weather variables at once.</figcaption>
+      </figure>
+      <div class="settings-row">
+        <span class="chip">K_neighbors = <b>10</b></span>
+        <span class="chip">latent_dim = <b>32</b></span>
+        <span class="chip">solver = <b>rk4</b> (dopri5 was unstable)</span>
+        <span class="chip">epochs = <b>50</b></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="demo">
+    <div class="kicker"><span class="num">02</span><h2>Try it — three flown routes</h2></div>
+    <p class="muted" style="margin-top:-10px;margin-bottom:18px;max-width:640px">
+      These three flights are pulled straight from the model's test output — not a live backend. Scrub through each one to see the predicted conditions change with position, altitude and time. The third route also carries the real observed weather, so you can check the model against it directly.
+    </p>
+    <div class="tabs" role="tablist">
+      <button class="tab" data-tab="r1" role="tab" aria-selected="true">Route 1 · BC interior → Nunavut</button>
+      <button class="tab" data-tab="r2" role="tab" aria-selected="false">Route 2 · Yukon → Manitoba</button>
+      <button class="tab" data-tab="val" role="tab" aria-selected="false">Validation flight · Vancouver → Calgary corridor (predicted vs. actual)</button>
+    </div>
+
+    <div class="demo-grid">
+      <div class="panel">
+        <h3 id="map-title">Enroute plot</h3>
+        <svg id="map-svg" viewBox="0 0 640 460" role="img" aria-label="Map of the flight route plotted by latitude and longitude, with the current position marked."></svg>
+        <div class="controls">
+          <button id="play-btn" type="button">▶ Play</button>
+          <input id="scrub" type="range" min="0" max="19" value="0" step="1">
+          <span class="time-read mono" id="time-read">hr 1</span>
+        </div>
+        <div class="station-tag" id="station-tag"></div>
+      </div>
+
+      <div class="panel">
+        <h3 id="readout-title">Predicted weather at this point</h3>
+        <div class="readout-grid" id="readout-grid"></div>
+        <div class="flag-note" id="flag-note"></div>
+        <div id="compare-legend-wrap" style="display:none">
+          <div class="compare-legend">
+            <span><i style="background:var(--series-1)"></i>predicted</span>
+            <span><i style="background:var(--series-2)"></i>observed</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="grid-column:1/-1">
+        <h3 id="chart-title">Altitude profile</h3>
+        <svg id="chart-svg" viewBox="0 0 900 220" role="img" aria-label="Chart of altitude or predicted temperature over the course of the flight, with the current position marked."></svg>
+      </div>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="kicker"><span class="num">03</span><h2>Evaluation results</h2></div>
+    <p class="muted" style="margin-top:-10px;margin-bottom:18px;max-width:680px">
+      Scored against held-out ground truth on two full test routes (18,581 and 18,110 points). These are the real numbers the model above was judged on — including where it still struggles.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Variable</th><th>Route</th><th class="num">MAE</th><th class="num">RMSE</th><th class="num">R²</th><th>Read</th></tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+    <div class="finding-grid">
+      <div class="finding good">
+        <h4>Pressure is the standout (R² ≈ 0.999)</h4>
+        <p>Near-perfect across both routes — the model has clearly learned the vertical structure of the atmosphere, which is exactly what altitude-dependent flight planning needs most.</p>
+      </div>
+      <div class="finding good">
+        <h4>Wind speed holds up well (R² ≈ 0.85)</h4>
+        <p>MAE around 7 m/s is in a useful range for fuel-burn and groundspeed planning, and performance is consistent between both test routes.</p>
+      </div>
+      <div class="finding">
+        <h4>Temperature is directionally right, not precise (R² ≈ 0.5)</h4>
+        <p>MAE ~8°C is usable for icing checks but not fine-grained performance calculations — there's real room to improve here.</p>
+      </div>
+      <div class="finding crit">
+        <h4>Visibility doesn't work yet (negative R²)</h4>
+        <p>The model collapses toward near-constant predictions. Visibility is notoriously hard to model from station data alone; it would need a dedicated fog/cloud-aware module, not a tweak.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <h3 style="font-size:14px;color:var(--ink-dim)">Built with</h3>
+  <div class="stack-chips">
+    <span>PyTorch</span><span>torchdiffeq</span><span>Flask</span><span>React</span><span>Vite</span><span>Tailwind</span>
+  </div>
+  <p>This page is a static walkthrough of real model output — it replays saved predictions rather than calling the live PyTorch model. The full app (Flask API + React map/altitude UI) runs locally against arbitrary routes and points; see the <a href="https://github.com/riyazbiju/SKYBREIF" target="_blank" rel="noopener">GitHub repo</a> for setup.</p>
+</footer>
+
+<script>
+(function(){
+"use strict";
+
+var ROUTES = {
+  r1: {
+    label: "Route 1 — BC interior → Arctic Nunavut",
+    hasTruth: false,
+    rows: [
+      {lat:50.20,lon:-121.58,alt:20216,t:1,temp:-57.0,wind:43.6,dir:269,pres:65.4,vis:43.9,stn:"CYHE"},
+      {lat:51.15,lon:-119.90,alt:40039,t:2,temp:-61.5,wind:53.4,dir:280,pres:-21.4,vis:44.3,stn:"CYKA"},
+      {lat:52.10,lon:-118.23,alt:39975,t:3,temp:-62.7,wind:51.8,dir:273,pres:-20.1,vis:43.7,stn:"CYCP"},
+      {lat:53.05,lon:-116.55,alt:39904,t:4,temp:-65.5,wind:63.6,dir:299,pres:-40.2,vis:40.0,stn:"CYET"},
+      {lat:54.00,lon:-114.88,alt:40057,t:5,temp:-66.2,wind:62.9,dir:295,pres:-37.5,vis:40.5,stn:"CYZU"},
+      {lat:54.95,lon:-113.20,alt:39901,t:6,temp:-66.7,wind:65.0,dir:300,pres:-40.0,vis:40.1,stn:"CYZH"},
+      {lat:55.90,lon:-111.53,alt:40051,t:7,temp:-66.6,wind:66.7,dir:306,pres:-39.1,vis:40.3,stn:"CYMM"},
+      {lat:56.85,lon:-109.85,alt:40037,t:8,temp:-67.8,wind:69.5,dir:317,pres:-45.5,vis:41.0,stn:"CYMM"},
+      {lat:57.80,lon:-108.18,alt:40057,t:9,temp:-68.0,wind:71.4,dir:318,pres:-26.1,vis:43.0,stn:"CYKJ"},
+      {lat:58.75,lon:-106.50,alt:40004,t:10,temp:-69.1,wind:79.2,dir:327,pres:-15.5,vis:43.1,stn:"CYSF"},
+      {lat:59.70,lon:-104.83,alt:40052,t:11,temp:-69.1,wind:81.9,dir:329,pres:19.0,vis:46.9,stn:"CYSF"},
+      {lat:60.65,lon:-103.15,alt:39999,t:12,temp:-70.1,wind:85.7,dir:324,pres:2.1,vis:43.9,stn:"CYSF"},
+      {lat:61.60,lon:-101.48,alt:40025,t:13,temp:-69.6,wind:84.4,dir:327,pres:0.1,vis:45.0,stn:"CYSF"},
+      {lat:62.55,lon:-99.80,alt:39980,t:14,temp:-69.3,wind:85.6,dir:333,pres:11.0,vis:42.7,stn:"CYBK"},
+      {lat:63.50,lon:-98.13,alt:40071,t:15,temp:-67.1,wind:83.6,dir:338,pres:4.7,vis:40.3,stn:"CYBK"},
+      {lat:64.45,lon:-96.45,alt:40058,t:16,temp:-68.8,wind:86.5,dir:331,pres:6.5,vis:41.5,stn:"CYBK"},
+      {lat:65.40,lon:-94.78,alt:39977,t:17,temp:-69.5,wind:85.9,dir:331,pres:-8.5,vis:39.5,stn:"CYBK"},
+      {lat:66.35,lon:-93.10,alt:39909,t:18,temp:-69.0,wind:84.8,dir:332,pres:0.5,vis:42.4,stn:"CYBK"},
+      {lat:67.30,lon:-91.43,alt:20096,t:19,temp:-62.8,wind:70.4,dir:339,pres:69.8,vis:36.5,stn:"CYBB"},
+      {lat:68.25,lon:-89.75,alt:0,t:20,temp:-20.2,wind:20.7,dir:342,pres:951.1,vis:2.7,stn:"CYBB"}
+    ]
+  },
+  r2: {
+    label: "Route 2 — Yukon → Manitoba",
+    hasTruth: false,
+    rows: [
+      {lat:60.18,lon:-132.95,alt:20376,t:1,temp:-58.2,wind:37.2,dir:276,pres:59.5,vis:48.0,stn:"CYZW"},
+      {lat:59.62,lon:-130.89,alt:39928,t:2,temp:-64.0,wind:54.9,dir:290,pres:7.6,vis:50.2,stn:"CYZW"},
+      {lat:59.05,lon:-128.84,alt:40031,t:3,temp:-66.5,wind:60.5,dir:304,pres:-4.0,vis:49.6,stn:"CYDL"},
+      {lat:58.49,lon:-126.79,alt:39993,t:4,temp:-63.2,wind:53.6,dir:289,pres:4.9,vis:50.6,stn:"CYDL"},
+      {lat:57.92,lon:-124.74,alt:39907,t:5,temp:-63.8,wind:55.8,dir:286,pres:2.3,vis:48.7,stn:"CYYE"},
+      {lat:57.36,lon:-122.68,alt:39910,t:6,temp:-62.7,wind:54.9,dir:287,pres:14.3,vis:50.7,stn:"CYYE"},
+      {lat:56.79,lon:-120.63,alt:40076,t:7,temp:-64.4,wind:58.2,dir:288,pres:-7.8,vis:48.2,stn:"CYXJ"},
+      {lat:56.22,lon:-118.58,alt:39973,t:8,temp:-63.9,wind:58.3,dir:294,pres:-1.6,vis:48.2,stn:"CYPE"},
+      {lat:55.66,lon:-116.53,alt:40062,t:9,temp:-64.8,wind:58.3,dir:292,pres:-1.2,vis:46.6,stn:"CYPE"},
+      {lat:55.09,lon:-114.47,alt:39984,t:10,temp:-66.0,wind:61.0,dir:297,pres:-20.3,vis:42.8,stn:"CYZH"},
+      {lat:54.53,lon:-112.42,alt:40053,t:11,temp:-66.4,wind:64.3,dir:298,pres:-33.1,vis:41.1,stn:"CYED"},
+      {lat:53.96,lon:-110.37,alt:40071,t:12,temp:-66.6,wind:67.8,dir:304,pres:-40.5,vis:40.8,stn:"CYLL"},
+      {lat:53.39,lon:-108.32,alt:39985,t:13,temp:-67.2,wind:67.0,dir:307,pres:-35.2,vis:40.3,stn:"CYQW"},
+      {lat:52.83,lon:-106.26,alt:40038,t:14,temp:-66.4,wind:66.7,dir:312,pres:-31.0,vis:42.2,stn:"CYPA"},
+      {lat:52.26,lon:-104.21,alt:39947,t:15,temp:-66.5,wind:67.5,dir:315,pres:-49.7,vis:39.3,stn:"CYBU"},
+      {lat:51.70,lon:-102.16,alt:40081,t:16,temp:-67.2,wind:69.0,dir:315,pres:-50.5,vis:40.4,stn:"CYQV"},
+      {lat:51.13,lon:-100.11,alt:39985,t:17,temp:-67.0,wind:70.0,dir:318,pres:-59.9,vis:39.2,stn:"CYDN"},
+      {lat:50.57,lon:-98.05,alt:20417,t:18,temp:-63.8,wind:65.7,dir:322,pres:2.7,vis:35.0,stn:"CYPG"},
+      {lat:50.00,lon:-96.00,alt:0,t:19,temp:-5.1,wind:24.4,dir:322,pres:909.7,vis:1.0,stn:"CYWG"}
+    ]
+  },
+  val: {
+    label: "Validation flight — Vancouver → Calgary corridor",
+    hasTruth: true,
+    rows: [
+      {lat:49.25,lon:-123.00,alt:4893,t:1,temp:-17.1,wind:40.7,dir:235,pres:584.3,vis:0.2,stn:"CYVR",tTemp:-12.7,tWind:27.1,tDir:233,tPres:550,tVis:10.0},
+      {lat:49.25,lon:-122.75,alt:8180,t:2,temp:-37.3,wind:68.2,dir:244,pres:346.3,vis:1.5,stn:"CYVR",tTemp:-35.8,tWind:51.0,tDir:240,tPres:350,tVis:5.0},
+      {lat:49.25,lon:-122.50,alt:12669,t:3,temp:-50.1,wind:55.6,dir:242,pres:181.8,vis:18.9,stn:"CYXX",tTemp:-59.2,tWind:42.0,tDir:256,tPres:175,tVis:10.0},
+      {lat:49.50,lon:-122.25,alt:16181,t:5,temp:-53.6,wind:44.2,dir:244,pres:105.4,vis:35.1,stn:"CYXX",tTemp:-57.4,tWind:25.2,tDir:270,tPres:100,tVis:10.0},
+      {lat:49.50,lon:-122.00,alt:20520,t:6,temp:-57.6,wind:39.9,dir:256,pres:53.6,vis:43.1,stn:"CYHE",tTemp:-59.4,tWind:11.6,tDir:321,tPres:50,tVis:10.0},
+      {lat:49.50,lon:-121.75,alt:23703,t:7,temp:-59.5,wind:45.5,dir:267,pres:39.7,vis:45.5,stn:"CYHE",tTemp:-59.7,tWind:22.3,tDir:343,tPres:30,tVis:10.0},
+      {lat:49.75,lon:-121.00,alt:30566,t:10,temp:-61.7,wind:50.0,dir:275,pres:5.3,vis:47.6,stn:"CYDC",tTemp:-56.0,tWind:35.6,tDir:353,tPres:10,tVis:10.0},
+      {lat:49.75,lon:-120.75,alt:35057,t:11,temp:-63.2,wind:52.9,dir:276,pres:-7.8,vis:45.2,stn:"CYDC",tTemp:-52.4,tWind:54.2,tDir:325,tPres:5,tVis:10.0},
+      {lat:50.00,lon:-120.00,alt:35043,t:15,temp:-62.2,wind:50.9,dir:279,pres:4.7,vis:49.3,stn:"CYLW",tTemp:-55.2,tWind:55.7,tDir:322,tPres:5,tVis:10.0},
+      {lat:50.00,lon:-119.75,alt:35017,t:16,temp:-62.1,wind:50.9,dir:276,pres:-2.8,vis:47.1,stn:"CYLW",tTemp:-54.6,tWind:54.3,tDir:317,tPres:5,tVis:10.0},
+      {lat:50.00,lon:-119.50,alt:35010,t:17,temp:-62.2,wind:51.6,dir:279,pres:3.9,vis:48.5,stn:"CYLW",tTemp:-52.3,tWind:56.4,tDir:310,tPres:5,tVis:10.0},
+      {lat:50.00,lon:-119.25,alt:34991,t:18,temp:-62.2,wind:50.6,dir:285,pres:8.4,vis:49.4,stn:"CYLW",tTemp:-52.2,tWind:60.7,tDir:306,tPres:5,tVis:10.0},
+      {lat:50.00,lon:-119.00,alt:34974,t:19,temp:-62.6,wind:51.2,dir:284,pres:-1.1,vis:49.2,stn:"CYLW",tTemp:-53.4,tWind:60.1,tDir:304,tPres:5,tVis:10.0},
+      {lat:50.25,lon:-118.75,alt:34941,t:21,temp:-61.9,wind:49.2,dir:282,pres:9.5,vis:49.3,stn:"CYLW",tTemp:-54.2,tWind:59.1,tDir:303,tPres:5,tVis:10.0},
+      {lat:50.25,lon:-118.50,alt:34927,t:22,temp:-63.1,wind:51.5,dir:279,pres:-4.9,vis:48.5,stn:"CYLW",tTemp:-54.9,tWind:60.1,tDir:305,tPres:5,tVis:10.0},
+      {lat:50.25,lon:-118.25,alt:34908,t:23,temp:-63.9,wind:52.3,dir:285,pres:-8.9,vis:47.2,stn:"CYRV",tTemp:-55.2,tWind:58.8,tDir:309,tPres:5,tVis:10.0},
+      {lat:50.25,lon:-118.00,alt:34914,t:24,temp:-62.9,wind:51.1,dir:281,pres:1.0,vis:48.5,stn:"CYRV",tTemp:-54.4,tWind:59.0,tDir:308,tPres:5,tVis:10.0},
+      {lat:50.25,lon:-117.75,alt:34913,t:25,temp:-63.3,wind:51.3,dir:282,pres:-1.5,vis:48.8,stn:"CYRV",tTemp:-54.7,tWind:58.4,tDir:308,tPres:5,tVis:10.0},
+      {lat:50.50,lon:-117.50,alt:34902,t:27,temp:-62.5,wind:50.9,dir:288,pres:12.1,vis:50.4,stn:"CYRV",tTemp:-55.0,tWind:55.9,tDir:311,tPres:5,tVis:10.0},
+      {lat:50.50,lon:-117.25,alt:34888,t:28,temp:-62.8,wind:51.3,dir:283,pres:1.7,vis:48.7,stn:"CYRV",tTemp:-55.2,tWind:55.4,tDir:311,tPres:5,tVis:10.0},
+      {lat:50.50,lon:-117.00,alt:34868,t:29,temp:-62.6,wind:51.8,dir:289,pres:2.7,vis:50.3,stn:"CYGE",tTemp:-56.5,tWind:54.7,tDir:312,tPres:5,tVis:10.0},
+      {lat:50.50,lon:-116.75,alt:34834,t:30,temp:-64.0,wind:53.7,dir:291,pres:3.7,vis:50.2,stn:"CYGE",tTemp:-57.7,tWind:54.6,tDir:314,tPres:5,tVis:10.0},
+      {lat:50.75,lon:-116.25,alt:34795,t:32,temp:-63.7,wind:51.8,dir:286,pres:-2.3,vis:47.9,stn:"CYGE",tTemp:-57.3,tWind:61.1,tDir:308,tPres:5,tVis:10.0},
+      {lat:50.75,lon:-116.00,alt:34777,t:33,temp:-64.1,wind:54.8,dir:289,pres:7.1,vis:49.6,stn:"CYGE",tTemp:-57.1,tWind:62.7,tDir:306,tPres:5,tVis:10.0},
+      {lat:50.75,lon:-115.75,alt:34776,t:34,temp:-63.7,wind:54.7,dir:292,pres:4.3,vis:49.7,stn:"CYBW",tTemp:-57.2,tWind:62.6,tDir:306,tPres:5,tVis:10.0},
+      {lat:50.75,lon:-115.50,alt:26099,t:35,temp:-61.5,wind:47.8,dir:280,pres:20.0,vis:47.6,stn:"CYBW",tTemp:-61.3,tWind:19.6,tDir:319,tPres:20,tVis:10.0},
+      {lat:50.75,lon:-115.25,alt:18315,t:36,temp:-58.4,wind:38.0,dir:276,pres:66.0,vis:42.1,stn:"CYBW",tTemp:-59.9,tWind:20.3,tDir:289,tPres:70,tVis:10.0},
+      {lat:51.00,lon:-115.25,alt:9054,t:37,temp:-44.4,wind:56.4,dir:264,pres:294.1,vis:4.5,stn:"CYBW",tTemp:-47.8,tWind:72.4,tDir:254,tPres:300,tVis:5.0},
+      {lat:51.00,lon:-115.00,alt:919,t:38,temp:-5.4,wind:10.8,dir:222,pres:908.9,vis:1.2,stn:"CYBW",tTemp:2.0,tWind:4.5,tDir:240,tPres:900,tVis:5.0}
+    ]
+  }
+};
+
+var CITY_REFS = [
+  {lat:49.19,lon:-123.18,label:"Vancouver"},
+  {lat:51.05,lon:-114.07,label:"Calgary"},
+  {lat:49.90,lon:-97.14,label:"Winnipeg"},
+  {lat:60.72,lon:-135.05,label:"Whitehorse"}
+];
+
+var LAT_MIN=47, LAT_MAX=70, LON_MIN=-138, LON_MAX=-86;
+var MAP_W=640, MAP_H=460;
+function proj(lat,lon){
+  var x = (lon-LON_MIN)/(LON_MAX-LON_MIN)*MAP_W;
+  var y = (LAT_MAX-lat)/(LAT_MAX-LAT_MIN)*MAP_H;
+  return {x:x,y:y};
+}
+
+var svgns = "http://www.w3.org/2000/svg";
+function el(tag, attrs){
+  var e = document.createElementNS(svgns, tag);
+  for(var k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+var state = { tab:"r1", idx:0, playing:false, timer:null };
+
+function currentRoute(){ return ROUTES[state.tab]; }
+
+function buildGraticule(svg){
+  for(var la=50; la<=65; la+=5){
+    var p1=proj(la,LON_MIN), p2=proj(la,LON_MAX);
+    svg.appendChild(el("line",{x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y,stroke:"#263040","stroke-width":1}));
+    svg.appendChild(el("text",{x:6,y:p1.y-4,fill:"#5c6b79","font-size":9,"font-family":"IBM Plex Mono, monospace"})).textContent = la+"°N";
+  }
+  for(var lo=-130; lo<=-90; lo+=10){
+    var q1=proj(LAT_MIN,lo), q2=proj(LAT_MAX,lo);
+    svg.appendChild(el("line",{x1:q1.x,y1:q1.y,x2:q2.x,y2:q2.y,stroke:"#263040","stroke-width":1}));
+    svg.appendChild(el("text",{x:q1.x+3,y:MAP_H-6,fill:"#5c6b79","font-size":9,"font-family":"IBM Plex Mono, monospace"})).textContent = Math.abs(lo)+"°W";
+  }
+  CITY_REFS.forEach(function(c){
+    var p = proj(c.lat,c.lon);
+    svg.appendChild(el("circle",{cx:p.x,cy:p.y,r:2.5,fill:"#5c6b79"}));
+    svg.appendChild(el("text",{x:p.x+6,y:p.y+3,fill:"#5c6b79","font-size":9,"font-family":"IBM Plex Mono, monospace"})).textContent = c.label;
+  });
+}
+
+function renderMap(){
+  var svg = document.getElementById("map-svg");
+  svg.innerHTML = "";
+  svg.setAttribute("viewBox","0 0 "+MAP_W+" "+MAP_H);
+  buildGraticule(svg);
+
+  var route = currentRoute();
+  var pts = route.rows.map(function(r){ return proj(r.lat,r.lon); });
+  var pathD = pts.map(function(p,i){ return (i===0?"M":"L")+p.x.toFixed(1)+","+p.y.toFixed(1); }).join(" ");
+  svg.appendChild(el("path",{d:pathD, fill:"none", stroke:"#3ddcc0","stroke-width":2,"stroke-linecap":"round",opacity:.85}));
+
+  // start / end markers
+  [0, pts.length-1].forEach(function(i){
+    var p = pts[i];
+    var g = el("g",{});
+    g.appendChild(el("rect",{x:p.x-4,y:p.y-4,width:8,height:8,fill:"#0a0e12",stroke:"#3ddcc0","stroke-width":1.5,transform:"rotate(45 "+p.x+" "+p.y+")"}));
+    var tag = el("text",{x:p.x+8,y:p.y-6,fill:"#96a3b0","font-size":9,"font-family":"IBM Plex Mono, monospace"});
+    tag.textContent = (i===0?"start · ":"end · ")+route.rows[i].stn;
+    g.appendChild(tag);
+    svg.appendChild(g);
+  });
+
+  // current position marker
+  var cur = pts[state.idx];
+  svg.appendChild(el("circle",{id:"pos-dot",cx:cur.x,cy:cur.y,r:5.5,fill:"#ffb020"}));
+  svg.appendChild(el("circle",{cx:cur.x,cy:cur.y,r:9,fill:"none",stroke:"#ffb020","stroke-width":1,opacity:.5}));
+
+  document.getElementById("map-title").textContent = "Enroute plot — " + route.label;
+  document.getElementById("scrub").max = route.rows.length-1;
+}
+
+function windArrow(deg){
+  return '<svg class="wind-dial" viewBox="0 0 16 16" style="transform:rotate('+deg+'deg)"><path d="M8 1 L11 9 L8 7 L5 9 Z" fill="currentColor"/></svg>';
+}
+
+function renderReadout(){
+  var route = currentRoute();
+  var row = route.rows[state.idx];
+  var grid = document.getElementById("readout-grid");
+  var flagged = [];
+  if(row.pres < 0) flagged.push("pressure went negative");
+  if(row.vis > 10) flagged.push("visibility exceeded the realistic 10&nbsp;sm ceiling");
+
+  function tile(k, v, u, isFlag){
+    return '<div class="tile'+(isFlag?' flag':'')+'"><div class="k">'+k+'</div><div class="v">'+v+'<span class="u">'+u+'</span></div></div>';
+  }
+
+  var html = "";
+  html += tile("Temperature", row.temp.toFixed(1), "°C");
+  html += tile("Wind", row.wind.toFixed(1)+"&nbsp;"+windArrow(row.dir), "m/s");
+  html += tile("Pressure", row.pres.toFixed(1), "hPa", row.pres<0);
+  html += tile("Visibility", row.vis.toFixed(1), "sm", row.vis>10);
+
+  if(route.hasTruth){
+    html += tile("Observed temp.", row.tTemp.toFixed(1), "°C");
+    html += tile("Observed wind", row.tWind.toFixed(1)+"&nbsp;"+windArrow(row.tDir), "m/s");
+    html += tile("Observed pressure", row.tPres.toFixed(1), "hPa");
+    html += tile("Observed visibility", row.tVis.toFixed(1), "sm");
+  }
+  grid.innerHTML = html;
+
+  document.getElementById("readout-title").textContent = route.hasTruth ? "Predicted vs. observed at this point" : "Predicted weather at this point";
+  document.getElementById("compare-legend-wrap").style.display = route.hasTruth ? "block" : "none";
+
+  var note = document.getElementById("flag-note");
+  if(flagged.length){
+    note.textContent = "Known limitation triggered: " + flagged.join(" and ") + " — this is the model's documented high-altitude failure mode, not a bug in this page.";
+    note.classList.add("show");
+  } else {
+    note.classList.remove("show");
+  }
+
+  document.getElementById("station-tag").textContent = "nearest station: " + row.stn + "  ·  alt " + Math.round(row.alt).toLocaleString() + " ft  ·  t+" + row.t + "h";
+  document.getElementById("time-read").textContent = "t+" + row.t + "h";
+}
+
+function renderChart(){
+  var route = currentRoute();
+  var svg = document.getElementById("chart-svg");
+  svg.innerHTML = "";
+  var W=900,H=220, padL=46, padR=16, padT=16, padB=28;
+  var plotW = W-padL-padR, plotH = H-padT-padB;
+
+  var useTemp = route.hasTruth;
+  document.getElementById("chart-title").textContent = useTemp
+    ? "Predicted vs. observed temperature across the flight"
+    : "Altitude profile across the flight";
+
+  var rows = route.rows;
+  var xs = rows.map(function(r){return r.t;});
+  var xMin = xs[0], xMax = xs[xs.length-1];
+  function sx(t){ return padL + (t-xMin)/(xMax-xMin)*plotW; }
+
+  if(useTemp){
+    var vals = rows.map(function(r){return r.temp;}).concat(rows.map(function(r){return r.tTemp;}));
+    var yMin = Math.min.apply(null,vals)-4, yMax = Math.max.apply(null,vals)+4;
+    function sy(v){ return padT + (1-(v-yMin)/(yMax-yMin))*plotH; }
+    [yMin, (yMin+yMax)/2, yMax].forEach(function(v){
+      var y = sy(v);
+      svg.appendChild(el("line",{x1:padL,y1:y,x2:W-padR,y2:y,stroke:"#1a2129","stroke-width":1}));
+      svg.appendChild(el("text",{x:4,y:y+3,fill:"#5c6b79","font-size":9,"font-family":"IBM Plex Mono, monospace"})).textContent = v.toFixed(0)+"°";
+    });
+    function linePath(key){
+      return rows.map(function(r,i){ return (i===0?"M":"L")+sx(r.t).toFixed(1)+","+sy(r[key]).toFixed(1); }).join(" ");
+    }
+    svg.appendChild(el("path",{d:linePath("tTemp"), fill:"none", stroke:"#d95926","stroke-width":2,opacity:.9}));
+    svg.appendChild(el("path",{d:linePath("temp"), fill:"none", stroke:"#3987e5","stroke-width":2}));
+    var cx = sx(rows[state.idx].t);
+    svg.appendChild(el("line",{x1:cx,y1:padT,x2:cx,y2:H-padB,stroke:"#ffb020","stroke-width":1,opacity:.6}));
+    svg.appendChild(el("circle",{cx:cx,cy:sy(rows[state.idx].temp),r:4,fill:"#3987e5"}));
+    svg.appendChild(el("circle",{cx:cx,cy:sy(rows[state.idx].tTemp),r:4,fill:"#d95926"}));
+  } else {
+    var alts = rows.map(function(r){return r.alt;});
+    var yMin2 = 0, yMax2 = Math.max.apply(null,alts)*1.1;
+    function sy2(v){ return padT + (1-(v-yMin2)/(yMax2-yMin2))*plotH; }
+    [0,10000,20000,30000,40000].forEach(function(v){
+      if(v>yMax2) return;
+      var y = sy2(v);
+      svg.appendChild(el("line",{x1:padL,y1:y,x2:W-padR,y2:y,stroke:"#1a2129","stroke-width":1}));
+      svg.appendChild(el("text",{x:2,y:y+3,fill:"#5c6b79","font-size":9,"font-family":"IBM Plex Mono, monospace"})).textContent = (v/1000)+"k";
+    });
+    var top = rows.map(function(r,i){ return (i===0?"M":"L")+sx(r.t).toFixed(1)+","+sy2(r.alt).toFixed(1); }).join(" ");
+    var areaD = top + " L"+sx(xMax).toFixed(1)+","+sy2(0)+" L"+sx(xMin).toFixed(1)+","+sy2(0)+" Z";
+    svg.appendChild(el("path",{d:areaD, fill:"#3987e5", opacity:.15}));
+    svg.appendChild(el("path",{d:top, fill:"none", stroke:"#3987e5","stroke-width":2}));
+    var cx2 = sx(rows[state.idx].t);
+    svg.appendChild(el("line",{x1:cx2,y1:padT,x2:cx2,y2:H-padB,stroke:"#ffb020","stroke-width":1,opacity:.6}));
+    svg.appendChild(el("circle",{cx:cx2,cy:sy2(rows[state.idx].alt),r:4,fill:"#3987e5"}));
+  }
+  svg.appendChild(el("text",{x:W-padR,y:H-6,fill:"#5c6b79","font-size":9,"font-family":"IBM Plex Mono, monospace","text-anchor":"end"})).textContent = "hours into test route →";
+}
+
+function renderAll(){
+  renderMap();
+  renderReadout();
+  renderChart();
+}
+
+function stopPlay(){
+  state.playing = false;
+  document.getElementById("play-btn").textContent = "▶ Play";
+  if(state.timer){ clearInterval(state.timer); state.timer=null; }
+}
+
+document.querySelectorAll(".tab").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    document.querySelectorAll(".tab").forEach(function(b){ b.setAttribute("aria-selected","false"); });
+    btn.setAttribute("aria-selected","true");
+    state.tab = btn.getAttribute("data-tab");
+    state.idx = 0;
+    stopPlay();
+    document.getElementById("scrub").value = 0;
+    renderAll();
+  });
+});
+
+document.getElementById("scrub").addEventListener("input", function(e){
+  stopPlay();
+  state.idx = parseInt(e.target.value,10);
+  renderReadout();
+  document.getElementById("pos-dot") && (function(){
+    var p = proj(currentRoute().rows[state.idx].lat, currentRoute().rows[state.idx].lon);
+    document.getElementById("pos-dot").setAttribute("cx",p.x);
+    document.getElementById("pos-dot").setAttribute("cy",p.y);
+  })();
+  renderChart();
+});
+
+document.getElementById("play-btn").addEventListener("click", function(){
+  if(state.playing){ stopPlay(); return; }
+  state.playing = true;
+  this.textContent = "⏸ Pause";
+  state.timer = setInterval(function(){
+    var route = currentRoute();
+    state.idx = (state.idx+1) % route.rows.length;
+    document.getElementById("scrub").value = state.idx;
+    renderReadout();
+    renderChart();
+    var p = proj(route.rows[state.idx].lat, route.rows[state.idx].lon);
+    var dot = document.getElementById("pos-dot");
+    if(dot){ dot.setAttribute("cx",p.x); dot.setAttribute("cy",p.y); }
+  }, 650);
+});
+
+// results table
+var METRICS = [
+  ["Pressure","Route 1","10.34","13.20","0.999","good"],
+  ["Pressure","Route 2","10.94","13.87","0.998","good"],
+  ["Wind speed","Route 1","7.38","17.34","0.847","good"],
+  ["Wind speed","Route 2","7.18","17.35","0.847","good"],
+  ["Wind direction","Route 1","83.78","97.81","0.705","warn"],
+  ["Wind direction","Route 2","76.82","92.07","0.738","warn"],
+  ["Temperature","Route 1","8.44","15.43","0.500","warn"],
+  ["Temperature","Route 2","8.06","14.79","0.465","warn"],
+  ["Visibility","Route 1","9.77","16.30","-53.02","crit"],
+  ["Visibility","Route 2","9.46","15.93","-46.11","crit"]
+];
+var READ = {good:"Reliable", warn:"Usable, imprecise", crit:"Not working"};
+var body = document.getElementById("results-body");
+METRICS.forEach(function(m){
+  var tr = document.createElement("tr");
+  tr.innerHTML = "<td>"+m[0]+"</td><td>"+m[1]+"</td><td class='num mono'>"+m[2]+"</td><td class='num mono'>"+m[3]+"</td><td class='num mono'>"+m[4]+"</td>"+
+    "<td><span class='pill pill-"+m[5]+"'>"+READ[m[5]]+"</span></td>";
+  body.appendChild(tr);
+});
+
+renderAll();
+})();
+</script>
