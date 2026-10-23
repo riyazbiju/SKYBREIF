@@ -32,7 +32,7 @@ The data covers **January 2026** over **Canada and the northern US**.
 3. Use an **ordinary differential equation (ODE)** to move that state forward to the exact location, altitude and time you asked about.
 4. Decode it back into weather values.
 
-More detail: [docs/MODEL_ARCHITECTURE_COMPARISON.md](docs/MODEL_ARCHITECTURE_COMPARISON.md) and [SPATIAL_TEMPORAL_UPGRADE.md](SPATIAL_TEMPORAL_UPGRADE.md).
+More detail: [docs/MODEL_ARCHITECTURE_COMPARISON.md](skrbrief-main/docs/MODEL_ARCHITECTURE_COMPARISON.md) and [SPATIAL_TEMPORAL_UPGRADE.md](skrbrief-main/SPATIAL_TEMPORAL_UPGRADE.md).
 
 ---
 
@@ -43,8 +43,8 @@ You need **Python 3.10+** and **Node.js 18+**.
 ### 1. Get the code and install
 
 ```bash
-git clone https://github.com/hxrshx/skrbrief.git
-cd skrbrief
+git clone https://github.com/riyazbiju/SKYBREIF.git
+cd SKYBREIF/skrbrief-main
 
 # Python
 python -m venv .venv
@@ -154,25 +154,27 @@ curl -X POST http://localhost:5001/predict/point \
 ## Project layout
 
 ```
-├── api_server.py                  Flask API the web app talks to
-├── spatiotemporal_latent_ode.py   The model and data loading
-├── config_multi_station.py        All settings: model size, training, file paths
-├── best_spatiotemporal_model.pt   Trained model
-│
-├── train_spatiotemporal.py        Train the model
-├── quick_predict.py               Predict along a route + make plots
-├── predict_knearest.py            More detailed K-nearest-station predictions
-├── evaluate_routes.py             Score predictions against real data
-├── visualize_routes.py            Plotting helpers
-├── generate_*.py, create_*.py     Build realistic flight plans to test on
-│
-├── visualai/                      Web app (React + Vite + Tailwind)
-│   └── src/pages/                 Home, Route and Point screens
-├── data/                          Input CSVs (not in git — see above)
-├── checkpoints/                   Saved models from training, every 5 epochs
-├── results/                       Prediction CSVs
-├── visualizations/                Generated plots
-└── docs/                          Extra guides
+├── README.md                      Project overview
+└── skrbrief-main/
+    ├── api_server.py                  Flask API the web app talks to
+    ├── spatiotemporal_latent_ode.py   The model and data loading
+    ├── config_multi_station.py        All settings: model size, training, file paths
+    ├── best_spatiotemporal_model.pt   Trained model
+    │
+    ├── train_spatiotemporal.py        Train the model
+    ├── quick_predict.py               Predict along a route + make plots
+    ├── predict_knearest.py            More detailed K-nearest-station predictions
+    ├── evaluate_routes.py             Score predictions against real data
+    ├── visualize_routes.py            Plotting helpers
+    ├── generate_*.py, create_*.py     Build realistic flight plans to test on
+    │
+    ├── visualai/                      Web app (React + Vite + Tailwind)
+    │   └── src/pages/                 Home, Route and Point screens
+    ├── data/                          Input CSVs (not in git — see above)
+    ├── checkpoints/                   Saved models from training, every 5 epochs
+    ├── results/                       Prediction CSVs
+    ├── visualizations/                Generated plots
+    └── docs/                          Extra guides
 ```
 
 Older experiments live in `latent_ode_weather_multi_station.py` and `train_latent_ode_multi_station.py`, a grid-based version of the model.
@@ -181,7 +183,7 @@ Older experiments live in `latent_ode_weather_multi_station.py` and `train_laten
 
 ## Settings
 
-Everything is in [config_multi_station.py](config_multi_station.py). The ones you're most likely to change:
+Everything is in [config_multi_station.py](skrbrief-main/config_multi_station.py). The ones you're most likely to change:
 
 | Setting | Default | Meaning |
 |---------|---------|---------|
@@ -204,7 +206,7 @@ Everything is in [config_multi_station.py](config_multi_station.py). The ones yo
 
 ## Further reading
 
-- [VISUALIZATION_GUIDE.md](VISUALIZATION_GUIDE.md) — what each plot shows
-- [KNEAREST_INFERENCE_GUIDE.md](KNEAREST_INFERENCE_GUIDE.md) — how K-nearest-station prediction works
-- [README_VISUALAI.md](README_VISUALAI.md) — more on the web app and API
-- [docs/EVALUATION_RESULTS.md](docs/EVALUATION_RESULTS.md) — earlier evaluation results
+- [VISUALIZATION_GUIDE.md](skrbrief-main/VISUALIZATION_GUIDE.md) — what each plot shows
+- [KNEAREST_INFERENCE_GUIDE.md](skrbrief-main/KNEAREST_INFERENCE_GUIDE.md) — how K-nearest-station prediction works
+- [README_VISUALAI.md](skrbrief-main/README_VISUALAI.md) — more on the web app and API
+- [docs/EVALUATION_RESULTS.md](skrbrief-main/docs/EVALUATION_RESULTS.md) — earlier evaluation results
