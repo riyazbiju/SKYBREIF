@@ -1,0 +1,54 @@
+================================================================================
+SPATIO-TEMPORAL MODEL EVALUATION SUMMARY
+================================================================================
+
+Model: best_spatiotemporal_model.pt (Epoch 50, KL ~16.0 maintained)
+
+================================================================================
+ROUTE 1 SUBSET (18,581 predictions)
+================================================================================
+Variable             MAE          RMSE         Unit
+----------------------------------------------------------------------
+Temperature          8.437        15.396       °C
+Wind Speed           7.317        17.255       m/s
+Visibility           9.774        16.291       m
+Pressure             10.332       13.208       hPa
+Wind U               0.001        0.001        m/s
+Wind V               0.001        0.001        m/s
+
+================================================================================
+ROUTE 2 SUBSET (18,110 predictions)
+================================================================================
+Variable             MAE          RMSE         Unit
+----------------------------------------------------------------------
+Temperature          8.102        14.830       °C
+Wind Speed           7.164        17.288       m/s
+Visibility           9.432        15.896       m
+Pressure             10.898       13.837       hPa
+Wind U               0.001        0.001        m/s
+Wind V               0.001        0.001        m/s
+
+================================================================================
+REALISTIC FLIGHT ROUTE (1 prediction - small dataset)
+================================================================================
+Variable             MAE          RMSE         Unit
+----------------------------------------------------------------------
+Temperature          1.723        1.723        °C
+Wind Speed           2.875        2.875        m/s
+Visibility           1.812        1.812        m
+Pressure             13.918       13.918       hPa
+Wind U               0.001        0.001        m/s
+Wind V               0.001        0.001        m/s
+
+================================================================================
+KEY OBSERVATIONS
+================================================================================
+1. Model successfully uses latent space (KL = 16.0, not collapsed)
+2. Consistent performance across Route 1 and Route 2 (large datasets)
+3. Realistic flight shows better MAE (but only 1 prediction due to small size)
+4. Temperature: 8-8.5°C MAE on large routes
+5. Wind Speed: 7-7.3 m/s MAE on large routes
+6. Pressure: 10-11 hPa MAE on large routes
+
+The spatio-temporal model properly evolves through 4D space-time!
+================================================================================

@@ -1,0 +1,179 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 25% 8%;
+    --foreground: 210 40% 96%;
+
+    --card: 220 20% 12%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 220 20% 12%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 199 89% 48%;
+    --primary-foreground: 220 25% 8%;
+
+    --secondary: 220 20% 18%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 220 15% 20%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 220 25% 8%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 15% 22%;
+    --input: 220 15% 22%;
+    --ring: 199 89% 48%;
+
+    --radius: 0.75rem;
+
+    /* Custom aviation tokens */
+    --sky-gradient-start: 199 89% 48%;
+    --sky-gradient-end: 220 60% 25%;
+    --altitude-warm: 38 92% 50%;
+    --altitude-cold: 199 89% 48%;
+    --route-line: 199 89% 60%;
+    --grid-line: 220 15% 25%;
+    --data-overlay: 220 25% 8%;
+
+    /* Sidebar tokens */
+    --sidebar-background: 220 20% 10%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 199 89% 48%;
+    --sidebar-primary-foreground: 220 25% 8%;
+    --sidebar-accent: 220 20% 16%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 220 15% 22%;
+    --sidebar-ring: 199 89% 48%;
+  }
+
+  .dark {
+    --background: 220 25% 8%;
+    --foreground: 210 40% 96%;
+    --card: 220 20% 12%;
+    --card-foreground: 210 40% 96%;
+    --popover: 220 20% 12%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 220 25% 8%;
+    --secondary: 220 20% 18%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 220 15% 20%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 220 25% 8%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 15% 22%;
+    --input: 220 15% 22%;
+    --ring: 199 89% 48%;
+    --sidebar-background: 220 20% 10%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 199 89% 48%;
+    --sidebar-primary-foreground: 220 25% 8%;
+    --sidebar-accent: 220 20% 16%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 220 15% 22%;
+    --sidebar-ring: 199 89% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', sans-serif;
+  }
+
+  code, .mono {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+}
+
+@layer utilities {
+  .aviation-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--sky-gradient-start)) 0%,
+      hsl(var(--sky-gradient-end)) 100%
+    );
+  }
+
+  .cockpit-glow {
+    box-shadow: 
+      0 0 20px hsl(var(--primary) / 0.2),
+      0 0 40px hsl(var(--primary) / 0.1),
+      inset 0 1px 0 hsl(var(--foreground) / 0.05);
+  }
+
+  .data-panel {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--card)) 0%,
+      hsl(var(--background)) 100%
+    );
+    border: 1px solid hsl(var(--border));
+  }
+
+  .altitude-gradient {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--altitude-cold)) 0%,
+      hsl(var(--altitude-warm)) 100%
+    );
+  }
+
+  .grid-overlay {
+    background-image: 
+      linear-gradient(hsl(var(--grid-line)) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--grid-line)) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .scan-line {
+    animation: scan 3s ease-in-out infinite;
+  }
+
+  @keyframes scan {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+  }
+
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { 
+      box-shadow: 0 0 10px hsl(var(--primary) / 0.4);
+    }
+    50% { 
+      box-shadow: 0 0 25px hsl(var(--primary) / 0.7);
+    }
+  }
+
+  .fade-in {
+    animation: fade-in 0.5s ease-out;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
