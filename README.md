@@ -32,6 +32,14 @@ The data covers **January 2026** over **Canada and the northern US**.
 3. Use an **ordinary differential equation (ODE)** to move that state forward to the exact location, altitude and time you asked about.
 4. Decode it back into weather values.
 
+---
+
+## Live demo
+
+**[Try it in your browser →](https://claude.ai/artifact/TNrN7CP9oTYLF7Shd3A9qx)** — no install, no setup.
+
+This replays three real flights from the model's saved test output (including one checked against actual observed weather) and the full evaluation results. It doesn't call the live model — see [`demo/index.html`](demo/index.html) for the source, or run the real app with the steps below.
+
 More detail: [docs/MODEL_ARCHITECTURE_COMPARISON.md](skrbrief-main/docs/MODEL_ARCHITECTURE_COMPARISON.md) and [SPATIAL_TEMPORAL_UPGRADE.md](skrbrief-main/SPATIAL_TEMPORAL_UPGRADE.md).
 
 ---
